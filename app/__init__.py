@@ -89,3 +89,27 @@ def _register_cli(app: Flask) -> None:
 
         db.session.commit()
         click.echo("Done.")
+
+    @app.cli.command("seed-defaults")
+    def seed_defaults() -> None:
+        """Non-interactive seed: creates admin/admin if no admin exists."""
+        from .models import User, Setting
+
+        if not User.query.filter_by(role="admin").first():
+            password_hash = bcrypt.generate_password_hash("admin").decode("utf-8")
+            admin = User(
+                name="Administrator",
+                username="admin",
+                password_hash=password_hash,
+                role="admin",
+            )
+            db.session.add(admin)
+            click.echo("Created default admin user (username: admin, password: admin).")
+        else:
+            click.echo("Admin user already exists, skipping.")
+
+        if not Setting.query.get("default_minimum_hours"):
+            db.session.add(Setting(key="default_minimum_hours", value="0.0"))
+
+        db.session.commit()
+        click.echo("Done.")
