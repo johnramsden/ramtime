@@ -6,7 +6,7 @@ from flask_login import login_required, current_user
 from . import bp
 from ..extensions import db
 from ..models import TimeEntry
-from ..utils import get_global_minimum, current_month_str, parse_datetime
+from ..utils import get_global_minimum, current_month_str, parse_datetime, is_current_month
 
 
 def _active_entry():
@@ -126,6 +126,22 @@ def edit_entry(entry_id: int):
     )
 
 
+@bp.route("/entry/<int:entry_id>/delete", methods=["POST"])
+@login_required
+def delete_entry(entry_id: int):
+    entry = TimeEntry.query.get_or_404(entry_id)
+    if entry.user_id != current_user.id:
+        flash("Access denied.", "danger")
+        return redirect(url_for("employee.log"))
+    if not is_current_month(entry):
+        flash("Only entries from the current month can be deleted.", "danger")
+        return redirect(url_for("employee.log"))
+    db.session.delete(entry)
+    db.session.commit()
+    flash("Entry deleted.", "success")
+    return redirect(url_for("employee.log"))
+
+
 @bp.route("/log")
 @login_required
 def log():
@@ -153,6 +169,7 @@ def log():
         entries=entries,
         month_str=month_str,
         global_min=global_min,
+        now_month=current_month_str(),
     )
 
 

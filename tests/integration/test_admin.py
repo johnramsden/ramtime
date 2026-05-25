@@ -87,6 +87,32 @@ class TestAdminEditEntry:
         assert entry.end_time.hour == 14
 
 
+class TestAdminDeleteEntry:
+    def test_admin_can_delete_current_month_entry(self, admin_client, employee_user):
+        entry = make_entry(
+            employee_user.id,
+            start=datetime.now().replace(hour=9, minute=0, second=0, microsecond=0),
+            end=datetime.now().replace(hour=11, minute=0, second=0, microsecond=0),
+        )
+        resp = admin_client.post(
+            f"/admin/entry/{entry.id}/delete", follow_redirects=True
+        )
+        assert resp.status_code == 200
+        assert TimeEntry.query.get(entry.id) is None
+
+    def test_admin_can_delete_past_month_entry(self, admin_client, employee_user):
+        entry = make_entry(
+            employee_user.id,
+            start=datetime(2024, 3, 10, 9, 0),
+            end=datetime(2024, 3, 10, 11, 0),
+        )
+        resp = admin_client.post(
+            f"/admin/entry/{entry.id}/delete", follow_redirects=True
+        )
+        assert resp.status_code == 200
+        assert TimeEntry.query.get(entry.id) is None
+
+
 class TestUserManagement:
     def test_create_user(self, admin_client, db):
         resp = admin_client.post(

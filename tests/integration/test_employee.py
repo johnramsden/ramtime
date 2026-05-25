@@ -167,6 +167,43 @@ class TestEditEntry:
         assert resp.status_code in (302, 403)
 
 
+class TestDeleteEntry:
+    def test_delete_current_month_entry(self, employee_client, employee_user):
+        entry = make_entry(
+            employee_user.id,
+            start=datetime.now().replace(hour=9, minute=0, second=0, microsecond=0),
+            end=datetime.now().replace(hour=11, minute=0, second=0, microsecond=0),
+        )
+        resp = employee_client.post(
+            f"/employee/entry/{entry.id}/delete", follow_redirects=True
+        )
+        assert resp.status_code == 200
+        assert TimeEntry.query.get(entry.id) is None
+
+    def test_cannot_delete_past_month_entry(self, employee_client, employee_user):
+        entry = make_entry(
+            employee_user.id,
+            start=datetime(2024, 3, 10, 9, 0),
+            end=datetime(2024, 3, 10, 11, 0),
+        )
+        resp = employee_client.post(
+            f"/employee/entry/{entry.id}/delete", follow_redirects=True
+        )
+        assert b"current month" in resp.data
+        assert TimeEntry.query.get(entry.id) is not None
+
+    def test_cannot_delete_other_users_entry(self, employee_client, admin_user):
+        entry = make_entry(
+            admin_user.id,
+            start=datetime.now().replace(hour=9, minute=0, second=0, microsecond=0),
+            end=datetime.now().replace(hour=11, minute=0, second=0, microsecond=0),
+        )
+        resp = employee_client.post(
+            f"/employee/entry/{entry.id}/delete", follow_redirects=True
+        )
+        assert TimeEntry.query.get(entry.id) is not None
+
+
 class TestMonthlyLog:
     def test_log_shows_entries_for_month(self, employee_client, employee_user):
         make_entry(

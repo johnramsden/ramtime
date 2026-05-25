@@ -22,6 +22,7 @@ from ..utils import (
     get_global_minimum,
     current_month_str,
     parse_datetime,
+    is_current_month,
 )
 
 
@@ -91,6 +92,17 @@ def edit_entry(entry_id: int):
         global_min=global_min,
         form_data={},
     )
+
+
+@bp.route("/entry/<int:entry_id>/delete", methods=["POST"])
+@login_required
+@admin_required
+def delete_entry(entry_id: int):
+    entry = TimeEntry.query.get_or_404(entry_id)
+    db.session.delete(entry)
+    db.session.commit()
+    flash("Entry deleted.", "success")
+    return redirect(url_for("admin.dashboard"))
 
 
 # ---------------------------------------------------------------------------

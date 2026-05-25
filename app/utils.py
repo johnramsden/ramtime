@@ -81,6 +81,15 @@ def current_month_str() -> str:
     return datetime.now().strftime("%Y-%m")
 
 
+def is_current_month(entry: "TimeEntry") -> bool:
+    """Return True if the entry's start_time falls in the current calendar month."""
+    now = datetime.now()
+    return (
+        entry.start_time.year == now.year
+        and entry.start_time.month == now.month
+    )
+
+
 def parse_datetime(date_str: str, time_str: str) -> datetime:
     """
     Combine a date string ('YYYY-MM-DD') and time string ('HH:MM') into a

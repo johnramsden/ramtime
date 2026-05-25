@@ -56,8 +56,16 @@
             </td>
             <td class="text-muted small">{{ e.note or '' }}</td>
             <td>
-              <a href="{{ url_for('employee.edit_entry', entry_id=e.id) }}"
+                <a href="{{ url_for('employee.edit_entry', entry_id=e.id) }}"
                  class="btn btn-sm btn-outline-secondary">Edit</a>
+              {% if e.start_time.strftime('%Y-%m') == now_month %}
+              <form method="post"
+                    action="{{ url_for('employee.delete_entry', entry_id=e.id) }}"
+                    class="d-inline"
+                    onsubmit="return confirm('Delete this entry?')">
+                <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+              </form>
+              {% endif %}
             </td>
           </tr>
         {% endfor %}
