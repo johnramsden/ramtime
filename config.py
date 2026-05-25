@@ -28,7 +28,9 @@ class TestingConfig(BaseConfig):
 class ProductionConfig(BaseConfig):
     SQLALCHEMY_DATABASE_URI = os.environ.get("DATABASE_URL", "sqlite:///ramtime.db")
     DEBUG = False
-    SESSION_COOKIE_SECURE = True
+    # Set SESSION_COOKIE_SECURE=True only when behind an HTTPS reverse proxy.
+    # Leaving it False here so plain-HTTP Docker deployments work out of the box.
+    SESSION_COOKIE_SECURE = os.environ.get("HTTPS", "false").lower() == "true"
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = "Lax"
 
