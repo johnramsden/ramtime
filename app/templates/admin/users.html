@@ -44,6 +44,7 @@
             <form method="post"
                   action="{{ url_for('admin.archive_user', user_id=u.id) }}"
                   class="d-inline">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
               <button type="submit"
                       class="btn btn-sm {% if u.is_archived %}btn-outline-success{% else %}btn-outline-warning{% endif %}">
                 {% if u.is_archived %}Unarchive{% else %}Archive{% endif %}
@@ -69,6 +70,7 @@
             </div>
             <form method="post"
                   action="{{ url_for('admin.delete_user', user_id=u.id) }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
               <div class="modal-body">
                 <p class="small">
                   This will permanently delete <strong>{{ u.name }}</strong> and all

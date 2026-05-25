@@ -10,6 +10,7 @@
         <h1 class="h4 mb-4 text-center fw-semibold">Sign in</h1>
 
         <form method="post" action="{{ url_for('auth.login_page') }}" novalidate>
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <div class="mb-3">
             <label for="username" class="form-label">Username</label>
             <input

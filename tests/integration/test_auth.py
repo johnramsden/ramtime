@@ -49,9 +49,36 @@ class TestLogin:
 
 class TestLogout:
     def test_logout_redirects_to_login(self, employee_client):
-        resp = employee_client.get("/logout", follow_redirects=True)
+        resp = employee_client.post("/logout", follow_redirects=True)
         assert resp.status_code == 200
         assert b"Sign in" in resp.data
+
+
+class TestOpenRedirect:
+    def test_relative_next_param_is_followed(self, client, employee_user):
+        resp = client.post(
+            "/login?next=/employee/log",
+            data={"username": "alice", "password": "password"},
+        )
+        assert resp.status_code == 302
+        assert resp.headers["Location"].endswith("/employee/log")
+
+    def test_absolute_external_next_param_is_rejected(self, client, employee_user):
+        resp = client.post(
+            "/login?next=http://evil.example.com/steal",
+            data={"username": "alice", "password": "password"},
+        )
+        assert resp.status_code == 302
+        # Must not redirect to external host
+        assert "evil.example.com" not in resp.headers["Location"]
+
+    def test_protocol_relative_next_param_is_rejected(self, client, employee_user):
+        resp = client.post(
+            "/login?next=//evil.example.com/steal",
+            data={"username": "alice", "password": "password"},
+        )
+        assert resp.status_code == 302
+        assert "evil.example.com" not in resp.headers["Location"]
 
 
 class TestRoleEnforcement:

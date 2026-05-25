@@ -8,6 +8,7 @@ from app.models import User, TimeEntry, Setting
 from tests.conftest import make_entry
 
 
+
 class TestAdminDashboard:
     def test_shows_all_employees_entries(self, admin_client, employee_user, admin_user):
         make_entry(employee_user.id,
@@ -98,7 +99,7 @@ class TestAdminDeleteEntry:
             f"/admin/entry/{entry.id}/delete", follow_redirects=True
         )
         assert resp.status_code == 200
-        assert TimeEntry.query.get(entry.id) is None
+        assert _db.session.get(TimeEntry, entry.id) is None
 
     def test_admin_can_delete_past_month_entry(self, admin_client, employee_user):
         entry = make_entry(
@@ -110,7 +111,7 @@ class TestAdminDeleteEntry:
             f"/admin/entry/{entry.id}/delete", follow_redirects=True
         )
         assert resp.status_code == 200
-        assert TimeEntry.query.get(entry.id) is None
+        assert _db.session.get(TimeEntry, entry.id) is None
 
 
 class TestUserManagement:
@@ -136,7 +137,7 @@ class TestUserManagement:
             data={
                 "name": "Duplicate",
                 "username": "alice",
-                "password": "abc123",
+                "password": "password123",
                 "role": "employee",
             },
         )
@@ -186,7 +187,7 @@ class TestUserManagement:
             data={"confirm_name": "wrong"},
             follow_redirects=True,
         )
-        assert User.query.get(employee_user.id) is not None
+        assert _db.session.get(User, employee_user.id) is not None
 
     def test_delete_user_removes_entries(self, admin_client, employee_user):
         make_entry(employee_user.id,
@@ -196,8 +197,40 @@ class TestUserManagement:
             f"/admin/users/{employee_user.id}/delete",
             data={"confirm_name": "alice"},
         )
-        assert User.query.get(employee_user.id) is None
+        assert _db.session.get(User, employee_user.id) is None
         assert TimeEntry.query.filter_by(user_id=employee_user.id).count() == 0
+
+    def test_admin_cannot_delete_own_account(self, admin_client, admin_user):
+        resp = admin_client.post(
+            f"/admin/users/{admin_user.id}/delete",
+            data={"confirm_name": "bobadmin"},
+            follow_redirects=True,
+        )
+        assert resp.status_code == 200
+        assert b"cannot delete" in resp.data
+        assert _db.session.get(User, admin_user.id) is not None
+
+    def test_admin_cannot_archive_own_account(self, admin_client, admin_user):
+        resp = admin_client.post(
+            f"/admin/users/{admin_user.id}/archive",
+            follow_redirects=True,
+        )
+        assert resp.status_code == 200
+        assert b"cannot archive" in resp.data
+        _db.session.refresh(admin_user)
+        assert admin_user.is_archived is False
+
+    def test_create_user_short_password_rejected(self, admin_client):
+        resp = admin_client.post(
+            "/admin/users/new",
+            data={
+                "name": "Short Pass",
+                "username": "shortpass",
+                "password": "abc",
+                "role": "employee",
+            },
+        )
+        assert b"8 characters" in resp.data
 
 
 class TestSettings:
@@ -208,7 +241,7 @@ class TestSettings:
             follow_redirects=True,
         )
         assert resp.status_code == 200
-        setting = Setting.query.get("default_minimum_hours")
+        setting = _db.session.get(Setting, "default_minimum_hours")
         assert setting is not None
         assert float(setting.value) == pytest.approx(2.5)
 

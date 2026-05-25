@@ -1,3 +1,5 @@
+from urllib.parse import urlparse
+
 from flask import render_template, redirect, url_for, request, flash
 from flask_login import login_user, logout_user, current_user, login_required
 
@@ -24,13 +26,16 @@ def login_page():
             return render_template("auth/login.html"), 401
 
         login_user(user)
-        next_url = request.args.get("next")
-        return redirect(next_url or _redirect_url_by_role(user))
+        next_url = request.args.get("next", "")
+        # Only allow relative redirects to prevent open redirect attacks
+        if next_url and urlparse(next_url).netloc == "":
+            return redirect(next_url)
+        return redirect(_redirect_url_by_role(user))
 
     return render_template("auth/login.html")
 
 
-@bp.route("/logout")
+@bp.route("/logout", methods=["POST"])
 @login_required
 def logout():
     logout_user()

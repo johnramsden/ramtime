@@ -2,13 +2,16 @@ import os
 import click
 from flask import Flask, session
 
-from .extensions import db, migrate, login_manager, bcrypt
+from .extensions import db, migrate, login_manager, bcrypt, csrf
 from config import config_map
 
 
 def create_app(config_name: str = "development") -> Flask:
     app = Flask(__name__, instance_relative_config=True)
-    app.config.from_object(config_map[config_name])
+    cfg = config_map[config_name]
+    if hasattr(cfg, "validate"):
+        cfg.validate()
+    app.config.from_object(cfg)
 
     os.makedirs(app.instance_path, exist_ok=True)
 
@@ -16,6 +19,7 @@ def create_app(config_name: str = "development") -> Flask:
     migrate.init_app(app, db)
     login_manager.init_app(app)
     bcrypt.init_app(app)
+    csrf.init_app(app)
 
     from .auth import bp as auth_bp
     from .employee import bp as employee_bp
@@ -28,6 +32,13 @@ def create_app(config_name: str = "development") -> Flask:
     @app.before_request
     def make_session_permanent():
         session.permanent = True
+
+    @app.after_request
+    def add_security_headers(response):
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "SAMEORIGIN"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        return response
 
     @app.route("/")
     def index():
@@ -83,7 +94,7 @@ def _register_cli(app: Flask) -> None:
             db.session.add(admin)
             click.echo(f"Created admin user '{username}'.")
 
-        if not Setting.query.get("default_minimum_hours"):
+        if not db.session.get(Setting, "default_minimum_hours"):
             db.session.add(Setting(key="default_minimum_hours", value="0.0"))
             click.echo("Seeded default_minimum_hours = 0.0")
 
@@ -108,7 +119,7 @@ def _register_cli(app: Flask) -> None:
         else:
             click.echo("Admin user already exists, skipping.")
 
-        if not Setting.query.get("default_minimum_hours"):
+        if not db.session.get(Setting, "default_minimum_hours"):
             db.session.add(Setting(key="default_minimum_hours", value="0.0"))
 
         db.session.commit()

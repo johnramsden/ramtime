@@ -1,10 +1,10 @@
-import calendar
 from datetime import datetime
 from functools import wraps
 
 from flask import abort
 from flask_login import current_user
 
+from .extensions import db
 from .models import Setting, TimeEntry
 
 
@@ -28,13 +28,29 @@ def admin_required(f):
 
 def get_global_minimum() -> float:
     """Return the admin-configured default minimum hours (0.0 if not set)."""
-    setting = Setting.query.get("default_minimum_hours")
+    setting = db.session.get(Setting, "default_minimum_hours")
     if setting is None:
         return 0.0
     try:
         return float(setting.value)
     except (ValueError, TypeError):
         return 0.0
+
+
+# ---------------------------------------------------------------------------
+# Date range helpers
+# ---------------------------------------------------------------------------
+
+def month_start(year: int, month: int) -> datetime:
+    """Return the first instant of the given month."""
+    return datetime(year, month, 1, 0, 0, 0)
+
+
+def month_end_exclusive(year: int, month: int) -> datetime:
+    """Return the first instant of the month *after* the given one (exclusive upper bound)."""
+    if month == 12:
+        return datetime(year + 1, 1, 1, 0, 0, 0)
+    return datetime(year, month + 1, 1, 0, 0, 0)
 
 
 # ---------------------------------------------------------------------------
@@ -53,24 +69,23 @@ def entries_query(month_str: str, half: str | None, user_id: int | None):
     Returns completed entries only (end_time IS NOT NULL).
     """
     year, month = map(int, month_str.split("-"))
-    _, last_day = calendar.monthrange(year, month)
 
     if half == "first":
         range_start = datetime(year, month, 1, 0, 0, 0)
-        range_end = datetime(year, month, 15, 23, 59, 59)
+        range_end = datetime(year, month, 16, 0, 0, 0)   # exclusive: < day 16
     elif half == "second":
         range_start = datetime(year, month, 16, 0, 0, 0)
-        range_end = datetime(year, month, last_day, 23, 59, 59)
+        range_end = month_end_exclusive(year, month)
     else:
-        range_start = datetime(year, month, 1, 0, 0, 0)
-        range_end = datetime(year, month, last_day, 23, 59, 59)
+        range_start = month_start(year, month)
+        range_end = month_end_exclusive(year, month)
 
     q = TimeEntry.query.filter(
         TimeEntry.start_time >= range_start,
-        TimeEntry.start_time <= range_end,
+        TimeEntry.start_time < range_end,
         TimeEntry.end_time.isnot(None),
     )
-    if user_id:
+    if user_id is not None:
         q = q.filter(TimeEntry.user_id == user_id)
 
     return q.order_by(TimeEntry.start_time.asc())

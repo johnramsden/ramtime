@@ -44,7 +44,7 @@ def test_failed_login_shows_error(page, live_server):
 
 
 def test_logout_redirects_to_login(employee_page, live_server):
-    employee_page.click("a[href='/logout']")
+    employee_page.locator("button:has-text('Logout')").click()
     employee_page.wait_for_url(f"{live_server}/login")
     assert "Sign in" in employee_page.locator("h1").inner_text()
     employee_page.screenshot(path=SCREENSHOTS / "after_logout.png")

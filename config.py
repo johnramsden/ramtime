@@ -28,6 +28,16 @@ class TestingConfig(BaseConfig):
 class ProductionConfig(BaseConfig):
     SQLALCHEMY_DATABASE_URI = os.environ.get("DATABASE_URL", "sqlite:///ramtime.db")
     DEBUG = False
+    SESSION_COOKIE_SECURE = True
+    SESSION_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_SAMESITE = "Lax"
+
+    @classmethod
+    def validate(cls) -> None:
+        if not os.environ.get("SECRET_KEY"):
+            raise RuntimeError(
+                "SECRET_KEY environment variable must be set in production."
+            )
 
 
 config_map = {

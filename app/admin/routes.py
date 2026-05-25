@@ -11,7 +11,7 @@ from flask import (
     Response,
     stream_with_context,
 )
-from flask_login import login_required
+from flask_login import login_required, current_user
 
 from . import bp
 from ..extensions import db, bcrypt
@@ -70,7 +70,7 @@ def dashboard():
 @login_required
 @admin_required
 def edit_entry(entry_id: int):
-    entry = TimeEntry.query.get_or_404(entry_id)
+    entry = db.get_or_404(TimeEntry, entry_id)
     global_min = get_global_minimum()
 
     if request.method == "POST":
@@ -98,7 +98,7 @@ def edit_entry(entry_id: int):
 @login_required
 @admin_required
 def delete_entry(entry_id: int):
-    entry = TimeEntry.query.get_or_404(entry_id)
+    entry = db.get_or_404(TimeEntry, entry_id)
     db.session.delete(entry)
     db.session.commit()
     flash("Entry deleted.", "success")
@@ -136,7 +136,7 @@ def new_user():
 @login_required
 @admin_required
 def edit_user(user_id: int):
-    user = User.query.get_or_404(user_id)
+    user = db.get_or_404(User, user_id)
 
     if request.method == "POST":
         error = _update_user(user)
@@ -155,7 +155,10 @@ def edit_user(user_id: int):
 @login_required
 @admin_required
 def archive_user(user_id: int):
-    user = User.query.get_or_404(user_id)
+    user = db.get_or_404(User, user_id)
+    if user.id == current_user.id:
+        flash("You cannot archive your own account.", "danger")
+        return redirect(url_for("admin.users"))
     user.is_archived = not user.is_archived
     db.session.commit()
     state = "archived" if user.is_archived else "unarchived"
@@ -167,7 +170,10 @@ def archive_user(user_id: int):
 @login_required
 @admin_required
 def delete_user(user_id: int):
-    user = User.query.get_or_404(user_id)
+    user = db.get_or_404(User, user_id)
+    if user.id == current_user.id:
+        flash("You cannot delete your own account.", "danger")
+        return redirect(url_for("admin.users"))
     confirm = request.form.get("confirm_name", "").strip()
     if confirm != user.username:
         flash("Confirmation did not match username. User not deleted.", "danger")
@@ -187,7 +193,7 @@ def delete_user(user_id: int):
 @login_required
 @admin_required
 def settings():
-    setting = Setting.query.get("default_minimum_hours")
+    setting = db.session.get(Setting, "default_minimum_hours")
 
     if request.method == "POST":
         val_str = request.form.get("default_minimum_hours", "").strip()
@@ -243,13 +249,13 @@ def export_csv():
             actual = e.actual_hours()
             billed = e.billed_hours(global_min)
             writer.writerow([
-                e.user.name,
+                _csv_safe(e.user.name),
                 e.start_time.strftime("%Y-%m-%d"),
                 e.start_time.strftime("%H:%M"),
                 e.end_time.strftime("%H:%M") if e.end_time else "",
                 f"{actual:.2f}" if actual is not None else "",
                 f"{billed:.2f}",
-                e.note or "",
+                _csv_safe(e.note or ""),
             ])
             yield buf.getvalue()
 
@@ -257,7 +263,7 @@ def export_csv():
     return Response(
         stream_with_context(generate()),
         mimetype="text/csv",
-        headers={"Content-Disposition": f"attachment; filename={filename}"},
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 
 
@@ -310,6 +316,8 @@ def _create_user() -> str | None:
 
     if not name or not username or not password:
         return "Name, username, and password are required."
+    if len(password) < 8:
+        return "Password must be at least 8 characters."
     if role not in ("employee", "admin"):
         return "Invalid role."
     if User.query.filter_by(username=username).first():
@@ -343,7 +351,16 @@ def _update_user(user: User) -> str | None:
     user.username = username
     user.role = role
     if password:
+        if len(password) < 8:
+            return "Password must be at least 8 characters."
         user.password_hash = bcrypt.generate_password_hash(password).decode("utf-8")
 
     db.session.commit()
     return None
+
+
+def _csv_safe(value: str) -> str:
+    """Prefix CSV injection trigger characters to neutralize formula injection."""
+    if value and value[0] in ("=", "+", "-", "@", "\t", "\r"):
+        return "'" + value
+    return value

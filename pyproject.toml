@@ -10,6 +10,7 @@ dependencies = [
     "flask-login>=0.6",
     "flask-bcrypt>=1.0",
     "gunicorn>=22.0",
+    "flask-wtf>=1.2",
 ]
 
 [dependency-groups]

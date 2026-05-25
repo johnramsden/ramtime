@@ -22,6 +22,7 @@
       </div>
       <div class="card-body">
         <form method="post" action="{{ url_for('employee.clock_out') }}" class="mb-3">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <button type="submit" class="btn btn-success">Stop &amp; clock out now</button>
         </form>
 
@@ -41,6 +42,7 @@
       <div class="card-body text-center py-5">
         <p class="text-muted mb-3">You are not currently clocked in.</p>
         <form method="post" action="{{ url_for('employee.clock_in') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <button type="submit" class="btn btn-primary btn-lg px-5">Clock in</button>
         </form>
       </div>

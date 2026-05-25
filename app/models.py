@@ -11,7 +11,7 @@ class User(db.Model):
     password_hash = db.Column(db.String(256), nullable=False)
     role = db.Column(db.String(16), nullable=False, default="employee")
     is_archived = db.Column(db.Boolean, nullable=False, default=False)
-    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.now)
 
     entries = db.relationship(
         "TimeEntry",
@@ -52,9 +52,9 @@ class TimeEntry(db.Model):
     end_time = db.Column(db.DateTime, nullable=True)  # NULL = actively clocked in
     note = db.Column(db.Text, nullable=True)
     minimum_hours = db.Column(db.Float, nullable=True)  # NULL = use global default
-    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.now)
     updated_at = db.Column(
-        db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
+        db.DateTime, nullable=False, default=datetime.now, onupdate=datetime.now
     )
 
     user = db.relationship("User", back_populates="entries")

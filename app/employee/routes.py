@@ -1,12 +1,15 @@
 from datetime import datetime
 
 from flask import render_template, redirect, url_for, request, flash
-from flask_login import login_required, current_user
+from flask_login import login_required, current_user, logout_user
 
 from . import bp
 from ..extensions import db, bcrypt
 from ..models import TimeEntry
-from ..utils import get_global_minimum, current_month_str, parse_datetime, is_current_month
+from ..utils import (
+    get_global_minimum, current_month_str, parse_datetime, is_current_month,
+    month_start, month_end_exclusive,
+)
 
 
 def _active_entry():
@@ -96,7 +99,7 @@ def new_entry():
 @bp.route("/entry/<int:entry_id>/edit", methods=["GET", "POST"])
 @login_required
 def edit_entry(entry_id: int):
-    entry = TimeEntry.query.get_or_404(entry_id)
+    entry = db.get_or_404(TimeEntry, entry_id)
     if entry.user_id != current_user.id:
         flash("Access denied.", "danger")
         return redirect(url_for("employee.dashboard"))
@@ -148,8 +151,9 @@ def change_password():
 
         current_user.password_hash = bcrypt.generate_password_hash(new_pw).decode("utf-8")
         db.session.commit()
-        flash("Password updated successfully.", "success")
-        return redirect(url_for("employee.dashboard"))
+        logout_user()
+        flash("Password updated successfully. Please log in with your new password.", "success")
+        return redirect(url_for("auth.login_page"))
 
     return render_template("employee/change_password.html")
 
@@ -157,7 +161,7 @@ def change_password():
 @bp.route("/entry/<int:entry_id>/delete", methods=["POST"])
 @login_required
 def delete_entry(entry_id: int):
-    entry = TimeEntry.query.get_or_404(entry_id)
+    entry = db.get_or_404(TimeEntry, entry_id)
     if entry.user_id != current_user.id:
         flash("Access denied.", "danger")
         return redirect(url_for("employee.log"))
@@ -182,11 +186,12 @@ def log():
 
     global_min = get_global_minimum()
 
+    year, month = map(int, month_str.split("-"))
     entries = (
         TimeEntry.query.filter(
             TimeEntry.user_id == current_user.id,
-            TimeEntry.start_time >= _month_start(month_str),
-            TimeEntry.start_time <= _month_end(month_str),
+            TimeEntry.start_time >= month_start(year, month),
+            TimeEntry.start_time < month_end_exclusive(year, month),
         )
         .order_by(TimeEntry.start_time.asc())
         .all()
@@ -202,7 +207,7 @@ def log():
 
 
 # ---------------------------------------------------------------------------
-# Helpers
+# Private helpers
 # ---------------------------------------------------------------------------
 
 def _save_entry(existing: TimeEntry | None) -> str | None:
@@ -261,13 +266,3 @@ def _save_entry(existing: TimeEntry | None) -> str | None:
     return None
 
 
-def _month_start(month_str: str) -> datetime:
-    year, month = map(int, month_str.split("-"))
-    return datetime(year, month, 1, 0, 0, 0)
-
-
-def _month_end(month_str: str) -> datetime:
-    import calendar
-    year, month = map(int, month_str.split("-"))
-    _, last_day = calendar.monthrange(year, month)
-    return datetime(year, month, last_day, 23, 59, 59)
