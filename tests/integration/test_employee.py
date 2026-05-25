@@ -204,6 +204,58 @@ class TestDeleteEntry:
         assert TimeEntry.query.get(entry.id) is not None
 
 
+class TestChangePassword:
+    def test_change_password_success(self, employee_client, employee_user):
+        resp = employee_client.post(
+            "/employee/change-password",
+            data={
+                "current_password": "password",
+                "new_password": "newpassword1",
+                "confirm_password": "newpassword1",
+            },
+            follow_redirects=True,
+        )
+        assert resp.status_code == 200
+        assert b"updated successfully" in resp.data
+        # Verify new password works
+        from app.extensions import bcrypt
+        _db.session.refresh(employee_user)
+        assert bcrypt.check_password_hash(employee_user.password_hash, "newpassword1")
+
+    def test_wrong_current_password_rejected(self, employee_client):
+        resp = employee_client.post(
+            "/employee/change-password",
+            data={
+                "current_password": "wrongpassword",
+                "new_password": "newpassword1",
+                "confirm_password": "newpassword1",
+            },
+        )
+        assert b"incorrect" in resp.data
+
+    def test_mismatched_new_passwords_rejected(self, employee_client):
+        resp = employee_client.post(
+            "/employee/change-password",
+            data={
+                "current_password": "password",
+                "new_password": "newpassword1",
+                "confirm_password": "differentpassword",
+            },
+        )
+        assert b"do not match" in resp.data
+
+    def test_short_password_rejected(self, employee_client):
+        resp = employee_client.post(
+            "/employee/change-password",
+            data={
+                "current_password": "password",
+                "new_password": "short",
+                "confirm_password": "short",
+            },
+        )
+        assert b"8 characters" in resp.data
+
+
 class TestMonthlyLog:
     def test_log_shows_entries_for_month(self, employee_client, employee_user):
         make_entry(

@@ -4,7 +4,7 @@ from flask import render_template, redirect, url_for, request, flash
 from flask_login import login_required, current_user
 
 from . import bp
-from ..extensions import db
+from ..extensions import db, bcrypt
 from ..models import TimeEntry
 from ..utils import get_global_minimum, current_month_str, parse_datetime, is_current_month
 
@@ -124,6 +124,34 @@ def edit_entry(entry_id: int):
         global_min=global_min,
         form_data={},
     )
+
+
+@bp.route("/change-password", methods=["GET", "POST"])
+@login_required
+def change_password():
+    if request.method == "POST":
+        current_pw = request.form.get("current_password", "")
+        new_pw = request.form.get("new_password", "")
+        confirm_pw = request.form.get("confirm_password", "")
+
+        if not bcrypt.check_password_hash(current_user.password_hash, current_pw):
+            flash("Current password is incorrect.", "danger")
+            return render_template("employee/change_password.html")
+
+        if len(new_pw) < 8:
+            flash("New password must be at least 8 characters.", "danger")
+            return render_template("employee/change_password.html")
+
+        if new_pw != confirm_pw:
+            flash("New passwords do not match.", "danger")
+            return render_template("employee/change_password.html")
+
+        current_user.password_hash = bcrypt.generate_password_hash(new_pw).decode("utf-8")
+        db.session.commit()
+        flash("Password updated successfully.", "success")
+        return redirect(url_for("employee.dashboard"))
+
+    return render_template("employee/change_password.html")
 
 
 @bp.route("/entry/<int:entry_id>/delete", methods=["POST"])
