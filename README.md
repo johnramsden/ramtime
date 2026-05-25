@@ -24,7 +24,7 @@ docker run -d \
   -p 8000:8000 \
   -e SECRET_KEY=<your-secret-key> \
   -v ramtime-data:/app/instance \
-  ghcr.io/<your-org>/ramtime:latest
+  ghcr.io/johnramsden/ramtime:latest
 ```
 
 Then open [http://localhost:8000](http://localhost:8000) and log in with:
