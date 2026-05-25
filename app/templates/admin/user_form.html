@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% set is_edit = user is not none %}
+
+{% block title %}
+  {% if is_edit %}Edit User{% else %}New User{% endif %} — Ramtime
+{% endblock %}
+
+{% block content %}
+<div class="row">
+  <div class="col-lg-5 mx-auto">
+
+    <h1 class="h4 mb-4">{% if is_edit %}Edit user{% else %}Add user{% endif %}</h1>
+
+    {% set fd = form_data %}
+    {% if is_edit and not fd %}
+      {% set default_name = user.name %}
+      {% set default_username = user.username %}
+      {% set default_role = user.role %}
+    {% else %}
+      {% set default_name = fd.get('name', '') %}
+      {% set default_username = fd.get('username', '') %}
+      {% set default_role = fd.get('role', 'employee') %}
+    {% endif %}
+
+    <form method="post">
+
+      <div class="mb-3">
+        <label for="name" class="form-label">Display name</label>
+        <input type="text" class="form-control" id="name" name="name"
+               value="{{ default_name }}" required>
+      </div>
+
+      <div class="mb-3">
+        <label for="username" class="form-label">Username</label>
+        <input type="text" class="form-control" id="username" name="username"
+               value="{{ default_username }}" autocomplete="off" required>
+      </div>
+
+      <div class="mb-3">
+        <label for="password" class="form-label">
+          Password
+          {% if is_edit %}<span class="text-muted small">(leave blank to keep current)</span>{% endif %}
+        </label>
+        <input type="password" class="form-control" id="password" name="password"
+               autocomplete="new-password"
+               {% if not is_edit %}required{% endif %}>
+      </div>
+
+      <div class="mb-4">
+        <label for="role" class="form-label">Role</label>
+        <select class="form-select" id="role" name="role">
+          <option value="employee" {% if default_role == 'employee' %}selected{% endif %}>Employee</option>
+          <option value="admin" {% if default_role == 'admin' %}selected{% endif %}>Admin</option>
+        </select>
+      </div>
+
+      <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-primary">
+          {% if is_edit %}Save changes{% else %}Create user{% endif %}
+        </button>
+        <a href="{{ url_for('admin.users') }}" class="btn btn-outline-secondary">Cancel</a>
+      </div>
+
+    </form>
+  </div>
+</div>
+{% endblock %}

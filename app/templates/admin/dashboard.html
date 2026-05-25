@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Dashboard — Ramtime{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+  <h1 class="h4 mb-0">Time entries</h1>
+  <a href="{{ url_for('admin.export_csv', month=month_str) }}"
+     class="btn btn-sm btn-outline-success" id="export-btn">
+    Export CSV ({{ month_str }})
+  </a>
+</div>
+
+{# ---- Filters ---- #}
+<form method="get" class="row g-2 mb-4 align-items-end" id="filter-form">
+  <div class="col-auto">
+    <label class="form-label small mb-1">Month</label>
+    <input type="month" class="form-control form-control-sm"
+           name="month" value="{{ month_str }}" style="width:160px">
+  </div>
+
+  <div class="col-auto">
+    <label class="form-label small mb-1">Period</label>
+    <select name="half" class="form-select form-select-sm" style="width:140px">
+      <option value="" {% if not half %}selected{% endif %}>Full month</option>
+      <option value="first" {% if half == 'first' %}selected{% endif %}>First half (1–15)</option>
+      <option value="second" {% if half == 'second' %}selected{% endif %}>Second half (16–end)</option>
+    </select>
+  </div>
+
+  <div class="col-auto">
+    <label class="form-label small mb-1">Employee</label>
+    <select name="user_id" class="form-select form-select-sm" style="width:180px">
+      <option value="">All employees</option>
+      {% for emp in employees %}
+        <option value="{{ emp.id }}"
+          {% if selected_user_id == emp.id %}selected{% endif %}>
+          {{ emp.name }}
+        </option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <div class="col-auto">
+    <button type="submit" class="btn btn-sm btn-primary">Filter</button>
+  </div>
+</form>
+
+{# ---- Table ---- #}
+{% if entries %}
+  {% set total_actual = namespace(val=0) %}
+  {% set total_billed = namespace(val=0) %}
+
+  <div class="table-responsive">
+    <table class="table table-hover align-middle" id="entries-table">
+      <thead class="table-light">
+        <tr>
+          <th>Employee</th>
+          <th>Date</th>
+          <th>Start</th>
+          <th>End</th>
+          <th class="text-end">Actual (h)</th>
+          <th class="text-end">Billed (h)</th>
+          <th>Note</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for e in entries %}
+          {% set actual = e.actual_hours() %}
+          {% set billed = e.billed_hours(global_min) %}
+          {% if actual is not none %}
+            {% set total_actual.val = total_actual.val + actual %}
+            {% set total_billed.val = total_billed.val + billed %}
+          {% endif %}
+          <tr>
+            <td>{{ e.user.name }}</td>
+            <td>{{ e.start_time.strftime('%Y-%m-%d') }}</td>
+            <td>{{ e.start_time.strftime('%H:%M') }}</td>
+            <td>{{ e.end_time.strftime('%H:%M') if e.end_time else '—' }}</td>
+            <td class="text-end">
+              {% if actual is not none %}{{ "%.2f"|format(actual) }}{% else %}—{% endif %}
+            </td>
+            <td class="text-end fw-semibold">{{ "%.2f"|format(billed) }}</td>
+            <td class="text-muted small">{{ e.note or '' }}</td>
+            <td>
+              <a href="{{ url_for('admin.edit_entry', entry_id=e.id) }}"
+                 class="btn btn-sm btn-outline-secondary">Edit</a>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot class="table-light fw-semibold">
+        <tr>
+          <td colspan="4">Total</td>
+          <td class="text-end">{{ "%.2f"|format(total_actual.val) }}</td>
+          <td class="text-end">{{ "%.2f"|format(total_billed.val) }}</td>
+          <td colspan="2"></td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+
+{% else %}
+  <p class="text-muted">No completed entries for the selected period.</p>
+{% endif %}
+{% endblock %}
