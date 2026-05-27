@@ -217,12 +217,16 @@ def _save_entry(existing: TimeEntry | None) -> str | None:
     Returns an error string or None on success.
     """
     date_str = request.form.get("date", "").strip()
-    start_str = request.form.get("start_time", "").strip()
-    end_str = request.form.get("end_time", "").strip()
+    start_h = request.form.get("start_hour", "").strip()
+    start_m = request.form.get("start_minute", "").strip()
+    end_h = request.form.get("end_hour", "").strip()
+    end_m = request.form.get("end_minute", "").strip()
+    start_str = f"{start_h}:{start_m}"
+    end_str = f"{end_h}:{end_m}"
     note = request.form.get("note", "").strip() or None
     min_str = request.form.get("minimum_hours", "").strip()
 
-    if not date_str or not start_str or not end_str:
+    if not date_str or not start_h or not start_m or not end_h or not end_m:
         return "Date, start time, and end time are required."
 
     try:

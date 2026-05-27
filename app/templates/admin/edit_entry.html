@@ -12,16 +12,20 @@
     {% set fd = form_data %}
     {% if not fd %}
       {% set default_date = entry.start_time.strftime('%Y-%m-%d') %}
-      {% set default_start = entry.start_time.strftime('%H:%M') %}
-      {% set default_end = entry.end_time.strftime('%H:%M') if entry.end_time else '' %}
+      {% set default_start_hour = entry.start_time.strftime('%H') %}
+      {% set default_start_minute = entry.start_time.strftime('%M') %}
+      {% set default_end_hour = entry.end_time.strftime('%H') if entry.end_time else '17' %}
+      {% set default_end_minute = entry.end_time.strftime('%M') if entry.end_time else '00' %}
       {% set default_note = entry.note or '' %}
       {% set default_min = entry.minimum_hours|string if entry.minimum_hours is not none else '' %}
       {% set default_overtime = entry.overtime_hours|string if entry.overtime_hours is not none else '' %}
       {% set default_holiday = entry.is_holiday %}
     {% else %}
       {% set default_date = fd.get('date', '') %}
-      {% set default_start = fd.get('start_time', '') %}
-      {% set default_end = fd.get('end_time', '') %}
+      {% set default_start_hour = fd.get('start_hour', '09') %}
+      {% set default_start_minute = fd.get('start_minute', '00') %}
+      {% set default_end_hour = fd.get('end_hour', '17') %}
+      {% set default_end_minute = fd.get('end_minute', '00') %}
       {% set default_note = fd.get('note', '') %}
       {% set default_min = fd.get('minimum_hours', '') %}
       {% set default_overtime = fd.get('overtime_hours', '') %}
@@ -39,14 +43,48 @@
 
       <div class="row g-3 mb-3">
         <div class="col">
-          <label for="start_time" class="form-label">Start time</label>
-          <input type="time" class="form-control" id="start_time" name="start_time"
-                 value="{{ default_start }}" required>
+          <label class="form-label">Start time</label>
+          <div class="d-flex align-items-center gap-1">
+            <select class="form-select" name="start_hour" style="width:5rem" required>
+              {% for h in range(24) %}
+                <option value="{{ '%02d' % h }}"
+                  {% if default_start_hour == '%02d' % h %}selected{% endif %}>
+                  {{ '%02d' % h }}
+                </option>
+              {% endfor %}
+            </select>
+            <span>:</span>
+            <select class="form-select" name="start_minute" style="width:5rem" required>
+              {% for m in range(60) %}
+                <option value="{{ '%02d' % m }}"
+                  {% if default_start_minute == '%02d' % m %}selected{% endif %}>
+                  {{ '%02d' % m }}
+                </option>
+              {% endfor %}
+            </select>
+          </div>
         </div>
         <div class="col">
-          <label for="end_time" class="form-label">End time</label>
-          <input type="time" class="form-control" id="end_time" name="end_time"
-                 value="{{ default_end }}" required>
+          <label class="form-label">End time</label>
+          <div class="d-flex align-items-center gap-1">
+            <select class="form-select" name="end_hour" style="width:5rem" required>
+              {% for h in range(24) %}
+                <option value="{{ '%02d' % h }}"
+                  {% if default_end_hour == '%02d' % h %}selected{% endif %}>
+                  {{ '%02d' % h }}
+                </option>
+              {% endfor %}
+            </select>
+            <span>:</span>
+            <select class="form-select" name="end_minute" style="width:5rem" required>
+              {% for m in range(60) %}
+                <option value="{{ '%02d' % m }}"
+                  {% if default_end_minute == '%02d' % m %}selected{% endif %}>
+                  {{ '%02d' % m }}
+                </option>
+              {% endfor %}
+            </select>
+          </div>
         </div>
       </div>
 
