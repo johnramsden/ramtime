@@ -234,9 +234,6 @@ def _save_entry(existing: TimeEntry | None) -> str | None:
     if end_dt <= start_dt:
         return "End time must be after start time."
 
-    if end_dt > datetime.now():
-        return "End time cannot be in the future."
-
     minimum_hours = None
     if min_str:
         try:
@@ -246,6 +243,22 @@ def _save_entry(existing: TimeEntry | None) -> str | None:
         except ValueError:
             return "Minimum hours must be a number."
 
+    ot_str = request.form.get("overtime_hours", "").strip()
+    overtime_hours = None
+    if ot_str:
+        try:
+            overtime_hours = float(ot_str)
+            if overtime_hours < 0:
+                return "Overtime hours cannot be negative."
+        except ValueError:
+            return "Overtime hours must be a number."
+    if overtime_hours is not None:
+        actual = (end_dt - start_dt).total_seconds() / 3600
+        if overtime_hours > actual:
+            return "Overtime hours cannot exceed actual hours."
+
+    is_holiday = request.form.get("is_holiday") == "1"
+
     if existing is None:
         entry = TimeEntry(
             user_id=current_user.id,
@@ -253,6 +266,8 @@ def _save_entry(existing: TimeEntry | None) -> str | None:
             end_time=end_dt,
             note=note,
             minimum_hours=minimum_hours,
+            overtime_hours=overtime_hours,
+            is_holiday=is_holiday,
         )
         db.session.add(entry)
     else:
@@ -260,6 +275,8 @@ def _save_entry(existing: TimeEntry | None) -> str | None:
         existing.end_time = end_dt
         existing.note = note
         existing.minimum_hours = minimum_hours
+        existing.overtime_hours = overtime_hours
+        existing.is_holiday = is_holiday
         existing.updated_at = datetime.now()
 
     db.session.commit()

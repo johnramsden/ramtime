@@ -16,6 +16,7 @@
 {% if entries %}
   {% set total_actual = namespace(val=0) %}
   {% set total_billed = namespace(val=0) %}
+  {% set total_ot = namespace(val=0) %}
 
   <div class="table-responsive">
     <table class="table table-hover align-middle">
@@ -26,6 +27,7 @@
           <th>End</th>
           <th class="text-end">Actual (h)</th>
           <th class="text-end">Billed (h)</th>
+          <th class="text-end">OT (h)</th>
           <th>Note</th>
           <th></th>
         </tr>
@@ -38,8 +40,16 @@
             {% set total_actual.val = total_actual.val + actual %}
             {% set total_billed.val = total_billed.val + billed %}
           {% endif %}
-          <tr>
-            <td>{{ e.start_time.strftime('%Y-%m-%d') }}</td>
+          {% if e.overtime_hours %}
+            {% set total_ot.val = total_ot.val + e.overtime_hours %}
+          {% endif %}
+          <tr{% if e.is_holiday %} class="table-info"{% endif %}>
+            <td>
+              {{ e.start_time.strftime('%Y-%m-%d') }}
+              {% if e.is_holiday %}
+                <span class="badge bg-info text-dark ms-1">Holiday</span>
+              {% endif %}
+            </td>
             <td>{{ e.start_time.strftime('%H:%M') }}</td>
             <td>
               {% if e.end_time %}
@@ -53,6 +63,9 @@
             </td>
             <td class="text-end fw-semibold">
               {% if e.end_time %}{{ "%.2f"|format(billed) }}{% else %}—{% endif %}
+            </td>
+            <td class="text-end">
+              {% if e.overtime_hours %}{{ "%.2f"|format(e.overtime_hours) }}{% endif %}
             </td>
             <td class="text-muted small">{{ e.note or '' }}</td>
             <td>
@@ -76,6 +89,7 @@
           <td colspan="3">Total</td>
           <td class="text-end">{{ "%.2f"|format(total_actual.val) }}</td>
           <td class="text-end">{{ "%.2f"|format(total_billed.val) }}</td>
+          <td class="text-end">{% if total_ot.val %}{{ "%.2f"|format(total_ot.val) }}{% endif %}</td>
           <td colspan="2"></td>
         </tr>
       </tfoot>

@@ -50,6 +50,7 @@
 {% if entries %}
   {% set total_actual = namespace(val=0) %}
   {% set total_billed = namespace(val=0) %}
+  {% set total_ot = namespace(val=0) %}
 
   <div class="table-responsive">
     <table class="table table-hover align-middle" id="entries-table">
@@ -61,6 +62,7 @@
           <th>End</th>
           <th class="text-end">Actual (h)</th>
           <th class="text-end">Billed (h)</th>
+          <th class="text-end">OT (h)</th>
           <th>Note</th>
           <th></th>
         </tr>
@@ -73,15 +75,26 @@
             {% set total_actual.val = total_actual.val + actual %}
             {% set total_billed.val = total_billed.val + billed %}
           {% endif %}
-          <tr>
+          {% if e.overtime_hours %}
+            {% set total_ot.val = total_ot.val + e.overtime_hours %}
+          {% endif %}
+          <tr{% if e.is_holiday %} class="table-info"{% endif %}>
             <td>{{ e.user.name }}</td>
-            <td>{{ e.start_time.strftime('%Y-%m-%d') }}</td>
+            <td>
+              {{ e.start_time.strftime('%Y-%m-%d') }}
+              {% if e.is_holiday %}
+                <span class="badge bg-info text-dark ms-1">Holiday</span>
+              {% endif %}
+            </td>
             <td>{{ e.start_time.strftime('%H:%M') }}</td>
             <td>{{ e.end_time.strftime('%H:%M') if e.end_time else '—' }}</td>
             <td class="text-end">
               {% if actual is not none %}{{ "%.2f"|format(actual) }}{% else %}—{% endif %}
             </td>
             <td class="text-end fw-semibold">{{ "%.2f"|format(billed) }}</td>
+            <td class="text-end">
+              {% if e.overtime_hours %}{{ "%.2f"|format(e.overtime_hours) }}{% endif %}
+            </td>
             <td class="text-muted small">{{ e.note or '' }}</td>
             <td>
               <a href="{{ url_for('admin.edit_entry', entry_id=e.id) }}"
@@ -102,6 +115,7 @@
           <td colspan="4">Total</td>
           <td class="text-end">{{ "%.2f"|format(total_actual.val) }}</td>
           <td class="text-end">{{ "%.2f"|format(total_billed.val) }}</td>
+          <td class="text-end">{% if total_ot.val %}{{ "%.2f"|format(total_ot.val) }}{% endif %}</td>
           <td colspan="2"></td>
         </tr>
       </tfoot>

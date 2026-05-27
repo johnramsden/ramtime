@@ -16,12 +16,16 @@
       {% set default_end = entry.end_time.strftime('%H:%M') if entry.end_time else '' %}
       {% set default_note = entry.note or '' %}
       {% set default_min = entry.minimum_hours|string if entry.minimum_hours is not none else '' %}
+      {% set default_overtime = entry.overtime_hours|string if entry.overtime_hours is not none else '' %}
+      {% set default_holiday = entry.is_holiday %}
     {% else %}
       {% set default_date = fd.get('date', '') %}
       {% set default_start = fd.get('start_time', '') %}
       {% set default_end = fd.get('end_time', '') %}
       {% set default_note = fd.get('note', '') %}
       {% set default_min = fd.get('minimum_hours', '') %}
+      {% set default_overtime = fd.get('overtime_hours', '') %}
+      {% set default_holiday = fd.get('is_holiday', '') == '1' %}
     {% endif %}
 
     <form method="post">
@@ -54,6 +58,21 @@
         <input type="number" class="form-control" id="minimum_hours" name="minimum_hours"
                value="{{ default_min }}" min="0" step="0.25"
                placeholder="{{ "%.2f"|format(global_min) }}">
+      </div>
+
+      <div class="mb-3">
+        <label for="overtime_hours" class="form-label">
+          Overtime hours
+          <span class="text-muted small">(optional)</span>
+        </label>
+        <input type="number" class="form-control" id="overtime_hours" name="overtime_hours"
+               value="{{ default_overtime }}" min="0" step="0.25" placeholder="0.00">
+      </div>
+
+      <div class="mb-3 form-check">
+        <input type="checkbox" class="form-check-input" id="is_holiday"
+               name="is_holiday" value="1" {% if default_holiday %}checked{% endif %}>
+        <label class="form-check-label" for="is_holiday">Holiday</label>
       </div>
 
       <div class="mb-4">

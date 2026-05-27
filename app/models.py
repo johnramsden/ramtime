@@ -52,6 +52,10 @@ class TimeEntry(db.Model):
     end_time = db.Column(db.DateTime, nullable=True)  # NULL = actively clocked in
     note = db.Column(db.Text, nullable=True)
     minimum_hours = db.Column(db.Float, nullable=True)  # NULL = use global default
+    overtime_hours = db.Column(db.Float, nullable=True)  # NULL = no overtime marked
+    is_holiday = db.Column(
+        db.Boolean, nullable=False, default=False, server_default="0"
+    )
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.now)
     updated_at = db.Column(
         db.DateTime, nullable=False, default=datetime.now, onupdate=datetime.now

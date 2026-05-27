@@ -9,9 +9,9 @@ from flask import (
     request,
     flash,
     Response,
-    stream_with_context,
 )
 from flask_login import login_required, current_user
+from sqlalchemy.orm import joinedload
 
 from . import bp
 from ..extensions import db, bcrypt
@@ -232,36 +232,36 @@ def export_csv():
         month_str = current_month_str()
 
     global_min = get_global_minimum()
-    all_entries = entries_query(month_str, half=None, user_id=None).all()
+    all_entries = (
+        entries_query(month_str, half=None, user_id=None)
+        .options(joinedload(TimeEntry.user))
+        .all()
+    )
 
-    def generate():
-        buf = io.StringIO()
-        writer = csv.writer(buf)
-        writer.writerow(
-            ["Employee Name", "Date", "Start Time", "End Time",
-             "Actual Hours", "Billed Hours", "Note"]
-        )
-        yield buf.getvalue()
-
-        for e in all_entries:
-            buf.truncate(0)
-            buf.seek(0)
-            actual = e.actual_hours()
-            billed = e.billed_hours(global_min)
-            writer.writerow([
-                _csv_safe(e.user.name),
-                e.start_time.strftime("%Y-%m-%d"),
-                e.start_time.strftime("%H:%M"),
-                e.end_time.strftime("%H:%M") if e.end_time else "",
-                f"{actual:.2f}" if actual is not None else "",
-                f"{billed:.2f}",
-                _csv_safe(e.note or ""),
-            ])
-            yield buf.getvalue()
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerow([
+        "Employee Name", "Date", "Start Time", "End Time",
+        "Actual Hours", "Billed Hours", "Overtime Hours", "Holiday", "Note",
+    ])
+    for e in all_entries:
+        actual = e.actual_hours()
+        billed = e.billed_hours(global_min)
+        writer.writerow([
+            _csv_safe(e.user.name),
+            e.start_time.strftime("%Y-%m-%d"),
+            e.start_time.strftime("%H:%M"),
+            e.end_time.strftime("%H:%M") if e.end_time else "",
+            f"{actual:.2f}" if actual is not None else "",
+            f"{billed:.2f}",
+            f"{e.overtime_hours:.2f}" if e.overtime_hours is not None else "",
+            "TRUE" if e.is_holiday else "FALSE",
+            _csv_safe(e.note or ""),
+        ])
 
     filename = f"ramtime_{month_str}.csv"
     return Response(
-        stream_with_context(generate()),
+        buf.getvalue(),
         mimetype="text/csv",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
@@ -299,10 +299,28 @@ def _save_entry_admin(entry: TimeEntry) -> str | None:
         except ValueError:
             return "Minimum hours must be a number."
 
+    ot_str = request.form.get("overtime_hours", "").strip()
+    overtime_hours = None
+    if ot_str:
+        try:
+            overtime_hours = float(ot_str)
+            if overtime_hours < 0:
+                return "Overtime hours cannot be negative."
+        except ValueError:
+            return "Overtime hours must be a number."
+    if overtime_hours is not None:
+        actual = (end_dt - start_dt).total_seconds() / 3600
+        if overtime_hours > actual:
+            return "Overtime hours cannot exceed actual hours."
+
+    is_holiday = request.form.get("is_holiday") == "1"
+
     entry.start_time = start_dt
     entry.end_time = end_dt
     entry.note = note
     entry.minimum_hours = minimum_hours
+    entry.overtime_hours = overtime_hours
+    entry.is_holiday = is_holiday
     entry.updated_at = datetime.now()
     db.session.commit()
     return None
