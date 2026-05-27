@@ -8,3 +8,4 @@ instance/
 htmlcov/
 .pytest_cache/
 tests/browser/screenshots/
+.idea
