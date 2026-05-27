@@ -82,11 +82,12 @@ class TimeEntry(db.Model):
         return global_default
 
     def billed_hours(self, global_default: float) -> float:
-        """Billed time = max(actual, effective_minimum). 0 if still clocked in."""
+        """Regular billed time = max(actual, effective_minimum) - overtime. 0 if clocked in."""
         actual = self.actual_hours()
         if actual is None:
             return 0.0
-        return max(actual, self.effective_minimum(global_default))
+        ot = self.overtime_hours or 0.0
+        return max(max(actual, self.effective_minimum(global_default)) - ot, 0.0)
 
     def __repr__(self):
         return f"<TimeEntry user={self.user_id} start={self.start_time}>"

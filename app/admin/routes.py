@@ -1,6 +1,6 @@
 import csv
 import io
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from flask import (
     render_template,
@@ -288,7 +288,7 @@ def _save_entry_admin(entry: TimeEntry) -> str | None:
         return "Invalid date or time format."
 
     if end_dt <= start_dt:
-        return "End time must be after start time."
+        end_dt += timedelta(days=1)
 
     minimum_hours = None
     if min_str:

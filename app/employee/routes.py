@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from flask import render_template, redirect, url_for, request, flash
 from flask_login import login_required, current_user, logout_user
@@ -232,7 +232,7 @@ def _save_entry(existing: TimeEntry | None) -> str | None:
         return "Invalid date or time format."
 
     if end_dt <= start_dt:
-        return "End time must be after start time."
+        end_dt += timedelta(days=1)
 
     minimum_hours = None
     if min_str:
