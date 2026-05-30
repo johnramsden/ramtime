@@ -1,5 +1,7 @@
 import os
+import tomllib
 import click
+from datetime import datetime
 from flask import Flask, session
 
 from .extensions import db, migrate, login_manager, bcrypt, csrf
@@ -59,6 +61,19 @@ def create_app(config_name: str = "development") -> Flask:
         if user is None or user.is_archived:
             return None
         return user
+
+    @app.context_processor
+    def inject_globals():
+        start_year = 2026
+        current_year = datetime.now().year
+        year_range = str(start_year) if current_year == start_year else f"{start_year} – {current_year}"
+        try:
+            _pyproject = os.path.join(app.root_path, "..", "pyproject.toml")
+            with open(_pyproject, "rb") as f:
+                app_version = tomllib.load(f)["project"]["version"]
+        except Exception:
+            app_version = "dev"
+        return {"app_version": app_version, "copyright_year": year_range}
 
     _register_cli(app)
 
