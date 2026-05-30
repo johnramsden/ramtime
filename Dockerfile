@@ -23,7 +23,7 @@ ENV PATH="/app/.venv/bin:$PATH"
 # Copy application source
 COPY app/ app/
 COPY migrations/ migrations/
-COPY config.py wsgi.py docker-entrypoint.sh ./
+COPY config.py wsgi.py docker-entrypoint.sh pyproject.toml ./
 
 # Run as non-root
 RUN useradd -m -u 1000 ramtime \
