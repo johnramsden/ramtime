@@ -200,6 +200,37 @@ class TestUserManagement:
         assert _db.session.get(User, employee_user.id) is None
         assert TimeEntry.query.filter_by(user_id=employee_user.id).count() == 0
 
+    def test_admin_can_delete_another_admin(self, admin_client, db):
+        from app.extensions import bcrypt as _bcrypt
+        other_admin = User(
+            name="Other Admin",
+            username="otheradmin",
+            password_hash=_bcrypt.generate_password_hash("pass").decode(),
+            role="admin",
+        )
+        _db.session.add(other_admin)
+        _db.session.commit()
+        resp = admin_client.post(
+            f"/admin/users/{other_admin.id}/delete",
+            data={"confirm_name": "otheradmin"},
+            follow_redirects=True,
+        )
+        assert resp.status_code == 200
+        assert _db.session.get(User, other_admin.id) is None
+
+    def test_delete_already_deleted_user_redirects(self, admin_client, employee_user):
+        admin_client.post(
+            f"/admin/users/{employee_user.id}/delete",
+            data={"confirm_name": "alice"},
+        )
+        resp = admin_client.post(
+            f"/admin/users/{employee_user.id}/delete",
+            data={"confirm_name": "alice"},
+            follow_redirects=True,
+        )
+        assert resp.status_code == 200
+        assert b"not found" in resp.data.lower()
+
     def test_admin_cannot_delete_own_account(self, admin_client, admin_user):
         resp = admin_client.post(
             f"/admin/users/{admin_user.id}/delete",

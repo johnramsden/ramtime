@@ -170,7 +170,10 @@ def archive_user(user_id: int):
 @login_required
 @admin_required
 def delete_user(user_id: int):
-    user = db.get_or_404(User, user_id)
+    user = db.session.get(User, user_id)
+    if user is None:
+        flash("User not found.", "warning")
+        return redirect(url_for("admin.users"))
     if user.id == current_user.id:
         flash("You cannot delete your own account.", "danger")
         return redirect(url_for("admin.users"))
