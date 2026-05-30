@@ -16,7 +16,6 @@ class User(db.Model):
     entries = db.relationship(
         "TimeEntry",
         back_populates="user",
-        lazy="dynamic",
         cascade="all, delete-orphan",
     )
 
