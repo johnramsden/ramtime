@@ -47,6 +47,6 @@ def test_correction_form_loads(employee_page, live_server):
     employee_page.wait_for_selector("#active-entry-card")
     # Navigate to correction form
     employee_page.locator("a:has-text('Edit / correct this entry')").click()
-    employee_page.wait_for_selector("#start_time")
+    employee_page.wait_for_selector("select[name='start_hour']")
     assert "Correct active entry" in employee_page.locator("h1").inner_text()
     employee_page.screenshot(path=SCREENSHOTS / "correction_form.png")

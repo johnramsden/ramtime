@@ -3,13 +3,11 @@ from pathlib import Path
 SCREENSHOTS = Path(__file__).parent / "screenshots"
 
 
-def test_manual_entry_form_renders(employee_page, live_server):
-    employee_page.goto(f"{live_server}/employee/entry/new")
-    assert "Add Entry" in employee_page.title()
-    assert employee_page.locator("#date").count() == 1
-    assert employee_page.locator("#start_time").count() == 1
-    assert employee_page.locator("#end_time").count() == 1
-    employee_page.screenshot(path=SCREENSHOTS / "manual_entry_form.png")
+def _fill_time(page, start_h, start_m, end_h, end_m):
+    page.select_option("select[name='start_hour']", start_h)
+    page.select_option("select[name='start_minute']", start_m)
+    page.select_option("select[name='end_hour']", end_h)
+    page.select_option("select[name='end_minute']", end_m)
 
 
 def _current_month():
@@ -22,9 +20,13 @@ def _today():
     return datetime.now().strftime("%Y-%m-%d")
 
 
-def _past_time():
-    """Return a time string guaranteed to be in the past today."""
-    return "08:00"
+def test_manual_entry_form_renders(employee_page, live_server):
+    employee_page.goto(f"{live_server}/employee/entry/new")
+    assert "Add Entry" in employee_page.title()
+    assert employee_page.locator("#date").count() == 1
+    assert employee_page.locator("select[name='start_hour']").count() == 1
+    assert employee_page.locator("select[name='end_hour']").count() == 1
+    employee_page.screenshot(path=SCREENSHOTS / "manual_entry_form.png")
 
 
 def test_submit_valid_entry_appears_in_log(employee_page, live_server):
@@ -32,13 +34,11 @@ def test_submit_valid_entry_appears_in_log(employee_page, live_server):
     today = _today()
     employee_page.goto(f"{live_server}/employee/entry/new")
     employee_page.fill("#date", today)
-    employee_page.fill("#start_time", "08:00")
-    employee_page.fill("#end_time", "09:00")
+    _fill_time(employee_page, "08", "00", "09", "00")
     employee_page.fill("#note", "Browser test entry")
     employee_page.screenshot(path=SCREENSHOTS / "manual_entry_filled.png")
     employee_page.click("button[type=submit]")
     employee_page.wait_for_url(f"{live_server}/employee/log")
-    # Navigate to this month's log
     employee_page.goto(f"{live_server}/employee/log?month={month}")
     assert "Browser test entry" in employee_page.content()
     employee_page.screenshot(path=SCREENSHOTS / "manual_entry_in_log.png")
@@ -50,8 +50,7 @@ def test_manual_entry_shows_billed_hours(employee_page, live_server):
     today = _today()
     employee_page.goto(f"{live_server}/employee/entry/new")
     employee_page.fill("#date", today)
-    employee_page.fill("#start_time", "08:00")
-    employee_page.fill("#end_time", "09:00")
+    _fill_time(employee_page, "08", "00", "09", "00")
     employee_page.click("button[type=submit]")
     employee_page.wait_for_url(f"{live_server}/employee/log")
     employee_page.goto(f"{live_server}/employee/log?month={month}")
@@ -64,8 +63,7 @@ def test_manual_entry_note_persisted(employee_page, live_server):
     today = _today()
     employee_page.goto(f"{live_server}/employee/entry/new")
     employee_page.fill("#date", today)
-    employee_page.fill("#start_time", "08:00")
-    employee_page.fill("#end_time", "09:00")
+    _fill_time(employee_page, "08", "00", "09", "00")
     employee_page.fill("#note", "Persistent note test")
     employee_page.click("button[type=submit]")
     employee_page.wait_for_url(f"{live_server}/employee/log")

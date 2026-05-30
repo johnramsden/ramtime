@@ -71,6 +71,28 @@ def admin_client(app, db, admin_user):
 
 
 @pytest.fixture()
+def second_admin_user(db):
+    from app.extensions import bcrypt
+    user = User(
+        name="Carol Admin",
+        username="caroladmin",
+        password_hash=bcrypt.generate_password_hash("adminpass2").decode(),
+        role="admin",
+    )
+    _db.session.add(user)
+    _db.session.commit()
+    return user
+
+
+@pytest.fixture()
+def second_admin_client(app, db, second_admin_user):
+    """Fresh test client logged in as a second admin."""
+    c = app.test_client()
+    c.post("/login", data={"username": "caroladmin", "password": "adminpass2"})
+    return c
+
+
+@pytest.fixture()
 def default_setting(db):
     s = Setting(key="default_minimum_hours", value="3.0")
     _db.session.add(s)
@@ -78,7 +100,7 @@ def default_setting(db):
     return s
 
 
-def make_entry(user_id, start, end=None, note=None, minimum_hours=None):
+def make_entry(user_id, start, end=None, note=None, minimum_hours=None, overtime_hours=None):
     """Helper to create and persist a TimeEntry."""
     entry = TimeEntry(
         user_id=user_id,
@@ -86,6 +108,7 @@ def make_entry(user_id, start, end=None, note=None, minimum_hours=None):
         end_time=end,
         note=note,
         minimum_hours=minimum_hours,
+        overtime_hours=overtime_hours,
     )
     _db.session.add(entry)
     _db.session.commit()

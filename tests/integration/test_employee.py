@@ -51,8 +51,10 @@ class TestManualEntry:
             "/employee/entry/new",
             data={
                 "date": "2024-03-10",
-                "start_time": "09:00",
-                "end_time": "11:30",
+                "start_hour": "09",
+                "start_minute": "00",
+                "end_hour": "11",
+                "end_minute": "30",
                 "note": "Test work",
                 "minimum_hours": "",
             },
@@ -62,19 +64,30 @@ class TestManualEntry:
         entry = TimeEntry.query.filter_by(user_id=employee_user.id).first()
         assert entry is not None
         assert entry.note == "Test work"
+        assert entry.start_time.hour == 9
+        assert entry.end_time.hour == 11
+        assert entry.end_time.minute == 30
 
-    def test_manual_entry_validates_end_after_start(self, employee_client):
+    def test_manual_entry_overnight_rollover(self, employee_client, employee_user):
+        # When end < start, the entry is rolled to the next day.
         resp = employee_client.post(
             "/employee/entry/new",
             data={
                 "date": "2024-03-10",
-                "start_time": "11:00",
-                "end_time": "09:00",
+                "start_hour": "11",
+                "start_minute": "00",
+                "end_hour": "09",
+                "end_minute": "00",
                 "note": "",
                 "minimum_hours": "",
             },
+            follow_redirects=True,
         )
-        assert b"after start time" in resp.data
+        assert resp.status_code == 200
+        entry = TimeEntry.query.filter_by(user_id=employee_user.id).first()
+        assert entry is not None
+        duration_h = (entry.end_time - entry.start_time).total_seconds() / 3600
+        assert duration_h == pytest.approx(22.0)
 
     def test_manual_entry_minimum_applied(self, employee_client, employee_user, default_setting):
         # 1h actual, global minimum 3h → billed = 3h
@@ -82,8 +95,10 @@ class TestManualEntry:
             "/employee/entry/new",
             data={
                 "date": "2024-01-10",
-                "start_time": "09:00",
-                "end_time": "10:00",
+                "start_hour": "09",
+                "start_minute": "00",
+                "end_hour": "10",
+                "end_minute": "00",
                 "note": "",
                 "minimum_hours": "",
             },
@@ -99,8 +114,10 @@ class TestManualEntry:
             "/employee/entry/new",
             data={
                 "date": "2024-01-10",
-                "start_time": "09:00",
-                "end_time": "10:00",
+                "start_hour": "09",
+                "start_minute": "00",
+                "end_hour": "10",
+                "end_minute": "00",
                 "note": "",
                 "minimum_hours": "4.0",
             },
@@ -109,19 +126,42 @@ class TestManualEntry:
         assert entry.minimum_hours == pytest.approx(4.0)
         assert entry.billed_hours(0.0) == pytest.approx(4.0)
 
-    def test_manual_entry_future_end_rejected(self, employee_client):
-        future = (datetime.now() + timedelta(hours=2)).strftime("%H:%M")
+    def test_entry_with_overtime(self, employee_client, employee_user):
+        # 8h actual, 2h overtime → billed = 6h
+        employee_client.post(
+            "/employee/entry/new",
+            data={
+                "date": "2024-01-10",
+                "start_hour": "09",
+                "start_minute": "00",
+                "end_hour": "17",
+                "end_minute": "00",
+                "note": "",
+                "minimum_hours": "",
+                "overtime_hours": "2.0",
+            },
+        )
+        entry = TimeEntry.query.filter_by(user_id=employee_user.id).first()
+        assert entry is not None
+        assert entry.overtime_hours == pytest.approx(2.0)
+        assert entry.billed_hours(0.0) == pytest.approx(6.0)
+
+    def test_overtime_exceeds_actual_rejected(self, employee_client, employee_user):
         resp = employee_client.post(
             "/employee/entry/new",
             data={
-                "date": datetime.now().strftime("%Y-%m-%d"),
-                "start_time": "00:01",
-                "end_time": future,
+                "date": "2024-01-10",
+                "start_hour": "09",
+                "start_minute": "00",
+                "end_hour": "10",
+                "end_minute": "00",
                 "note": "",
                 "minimum_hours": "",
+                "overtime_hours": "5.0",
             },
         )
-        assert b"future" in resp.data
+        assert b"cannot exceed" in resp.data.lower()
+        assert TimeEntry.query.filter_by(user_id=employee_user.id).count() == 0
 
 
 class TestEditEntry:
@@ -135,8 +175,10 @@ class TestEditEntry:
             f"/employee/entry/{entry.id}/edit",
             data={
                 "date": "2024-03-10",
-                "start_time": "09:00",
-                "end_time": "13:00",
+                "start_hour": "09",
+                "start_minute": "00",
+                "end_hour": "13",
+                "end_minute": "00",
                 "note": "Updated",
                 "minimum_hours": "",
             },
@@ -157,13 +199,14 @@ class TestEditEntry:
             f"/employee/entry/{entry.id}/edit",
             data={
                 "date": "2024-03-10",
-                "start_time": "09:00",
-                "end_time": "13:00",
+                "start_hour": "09",
+                "start_minute": "00",
+                "end_hour": "13",
+                "end_minute": "00",
                 "note": "",
                 "minimum_hours": "",
             },
         )
-        # Redirected or forbidden
         assert resp.status_code in (302, 403)
 
 

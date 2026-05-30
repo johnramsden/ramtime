@@ -2,7 +2,7 @@ import os
 import tomllib
 import click
 from datetime import datetime
-from flask import Flask, session
+from flask import Flask, flash, redirect, request, session, url_for
 
 from .extensions import db, migrate, login_manager, bcrypt, csrf
 from config import config_map
@@ -16,6 +16,13 @@ def create_app(config_name: str = "development") -> Flask:
     app.config.from_object(cfg)
 
     os.makedirs(app.instance_path, exist_ok=True)
+
+    try:
+        _pyproject = os.path.join(app.root_path, "..", "pyproject.toml")
+        with open(_pyproject, "rb") as _f:
+            _app_version = tomllib.load(_f)["project"]["version"]
+    except Exception:
+        _app_version = "dev"
 
     db.init_app(app)
     migrate.init_app(app, db)
@@ -42,10 +49,16 @@ def create_app(config_name: str = "development") -> Flask:
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         return response
 
+    from flask_wtf.csrf import CSRFError
+
+    @app.errorhandler(CSRFError)
+    def handle_csrf_error(e):
+        flash("Your session expired. Please try again.", "warning")
+        return redirect(request.referrer or url_for("index"))
+
     @app.route("/")
     def index():
         from flask_login import current_user
-        from flask import redirect, url_for
         if current_user.is_authenticated:
             if current_user.role == "admin":
                 return redirect(url_for("admin.dashboard"))
@@ -67,13 +80,7 @@ def create_app(config_name: str = "development") -> Flask:
         start_year = 2026
         current_year = datetime.now().year
         year_range = str(start_year) if current_year == start_year else f"{start_year} – {current_year}"
-        try:
-            _pyproject = os.path.join(app.root_path, "..", "pyproject.toml")
-            with open(_pyproject, "rb") as f:
-                app_version = tomllib.load(f)["project"]["version"]
-        except Exception:
-            app_version = "dev"
-        return {"app_version": app_version, "copyright_year": year_range}
+        return {"app_version": _app_version, "copyright_year": year_range}
 
     _register_cli(app)
 

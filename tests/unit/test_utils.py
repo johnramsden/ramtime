@@ -21,6 +21,13 @@ class TestGetGlobalMinimum:
     def test_returns_setting_value(self, db, default_setting):
         assert get_global_minimum() == pytest.approx(3.0)
 
+    def test_returns_zero_when_value_malformed(self, db):
+        from app.models import Setting
+        from app.extensions import db as _db
+        _db.session.add(Setting(key="default_minimum_hours", value="not-a-number"))
+        _db.session.commit()
+        assert get_global_minimum() == 0.0
+
 
 class TestEntriesQuery:
     """Tests require a db fixture for SQLAlchemy context."""

@@ -63,7 +63,7 @@ class TestAdminDashboard:
     def test_excludes_active_entries(self, admin_client, employee_user):
         make_entry(employee_user.id, start=datetime(2024, 3, 5, 9, 0), end=None)
         resp = admin_client.get("/admin/?month=2024-03")
-        assert b"Active" not in resp.data or b"2024-03-05" not in resp.data
+        assert b"2024-03-05" not in resp.data
 
 
 class TestAdminEditEntry:
@@ -75,8 +75,10 @@ class TestAdminEditEntry:
             f"/admin/entry/{entry.id}/edit",
             data={
                 "date": "2024-03-10",
-                "start_time": "09:00",
-                "end_time": "14:00",
+                "start_hour": "09",
+                "start_minute": "00",
+                "end_hour": "14",
+                "end_minute": "00",
                 "note": "Admin corrected",
                 "minimum_hours": "",
             },
@@ -299,7 +301,7 @@ class TestCSVExport:
         header = next(reader)
         assert header == [
             "Employee Name", "Date", "Start Time", "End Time",
-            "Actual Hours", "Billed Hours", "Note"
+            "Actual Hours", "Billed Hours", "Overtime Hours", "Holiday", "Note",
         ]
 
     def test_export_billed_hours_correct(self, admin_client, employee_user, default_setting):
@@ -327,3 +329,92 @@ class TestCSVExport:
         reader = csv.reader(io.StringIO(resp.data.decode()))
         rows = list(reader)
         assert len(rows) == 1  # just the header
+
+    def test_export_overtime_and_holiday_columns(self, admin_client, employee_user):
+        entry = make_entry(employee_user.id,
+                           start=datetime(2024, 3, 10, 9, 0),
+                           end=datetime(2024, 3, 10, 17, 0),
+                           overtime_hours=2.0)
+        resp = admin_client.get("/admin/export?month=2024-03")
+        reader = csv.reader(io.StringIO(resp.data.decode()))
+        next(reader)
+        row = next(reader)
+        assert row[6] == "2.00"    # Overtime Hours
+        assert row[7] == "FALSE"   # Holiday
+
+
+class TestUserManagementExtended:
+    def test_create_user_invalid_role_rejected(self, admin_client, db):
+        resp = admin_client.post(
+            "/admin/users/new",
+            data={
+                "name": "Bad Role",
+                "username": "badrole",
+                "password": "password123",
+                "role": "superuser",
+            },
+        )
+        assert b"Invalid role" in resp.data
+        assert User.query.filter_by(username="badrole").first() is None
+
+    def test_edit_user_invalid_role_rejected(self, admin_client, employee_user):
+        resp = admin_client.post(
+            f"/admin/users/{employee_user.id}/edit",
+            data={
+                "name": "Alice Employee",
+                "username": "alice",
+                "role": "superuser",
+            },
+        )
+        assert b"Invalid role" in resp.data
+        _db.session.refresh(employee_user)
+        assert employee_user.role == "employee"
+
+    def test_cannot_demote_last_admin(self, admin_client, admin_user):
+        # admin_user is the only admin — demoting would leave zero admins
+        resp = admin_client.post(
+            f"/admin/users/{admin_user.id}/edit",
+            data={
+                "name": "Bob Admin",
+                "username": "bobadmin",
+                "role": "employee",
+            },
+            follow_redirects=True,
+        )
+        assert b"last admin" in resp.data.lower()
+        _db.session.refresh(admin_user)
+        assert admin_user.role == "admin"
+
+    def test_second_admin_demote_allowed_when_another_exists(self, admin_client, admin_user, db):
+        from app.extensions import bcrypt as _bcrypt
+        second = User(
+            name="Second Admin",
+            username="secondadmin",
+            password_hash=_bcrypt.generate_password_hash("pass").decode(),
+            role="admin",
+        )
+        _db.session.add(second)
+        _db.session.commit()
+        # Now 2 admins exist; demoting second is allowed
+        resp = admin_client.post(
+            f"/admin/users/{second.id}/edit",
+            data={"name": "Second Admin", "username": "secondadmin", "role": "employee"},
+            follow_redirects=True,
+        )
+        assert resp.status_code == 200
+        _db.session.refresh(second)
+        assert second.role == "employee"
+
+    def test_second_admin_can_manage_users(self, second_admin_client, employee_user, db):
+        resp = second_admin_client.post(
+            f"/admin/users/{employee_user.id}/archive",
+            follow_redirects=True,
+        )
+        assert resp.status_code == 200
+        _db.session.refresh(employee_user)
+        assert employee_user.is_archived is True
+
+    def test_second_admin_sees_user_list(self, second_admin_client, employee_user, db):
+        resp = second_admin_client.get("/admin/users")
+        assert resp.status_code == 200
+        assert b"Alice Employee" in resp.data

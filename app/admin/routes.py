@@ -159,6 +159,11 @@ def archive_user(user_id: int):
     if user.id == current_user.id:
         flash("You cannot archive your own account.", "danger")
         return redirect(url_for("admin.users"))
+    if user.role == "admin" and not user.is_archived:
+        active_admin_count = User.query.filter_by(role="admin", is_archived=False).count()
+        if active_admin_count <= 1:
+            flash("Cannot archive the last active admin account.", "danger")
+            return redirect(url_for("admin.users"))
     user.is_archived = not user.is_archived
     db.session.commit()
     state = "archived" if user.is_archived else "unarchived"
@@ -177,6 +182,11 @@ def delete_user(user_id: int):
     if user.id == current_user.id:
         flash("You cannot delete your own account.", "danger")
         return redirect(url_for("admin.users"))
+    if user.role == "admin":
+        admin_count = User.query.filter_by(role="admin").count()
+        if admin_count <= 1:
+            flash("Cannot delete the last admin account.", "danger")
+            return redirect(url_for("admin.users"))
     confirm = request.form.get("confirm_name", "").strip()
     if confirm != user.username:
         flash("Confirmation did not match username. User not deleted.", "danger")
@@ -371,6 +381,11 @@ def _update_user(user: User) -> str | None:
     ).first()
     if conflict:
         return f"Username '{username}' is already taken."
+
+    if role == "employee" and user.role == "admin":
+        admin_count = User.query.filter_by(role="admin").count()
+        if admin_count <= 1:
+            return "Cannot demote the last admin account."
 
     user.name = name
     user.username = username

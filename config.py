@@ -7,6 +7,7 @@ class BaseConfig:
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     PERMANENT_SESSION_LIFETIME = timedelta(hours=72)
     SESSION_REFRESH_EACH_REQUEST = True
+    WTF_CSRF_TIME_LIMIT = None  # token lives as long as the session
 
 
 class DevelopmentConfig(BaseConfig):
